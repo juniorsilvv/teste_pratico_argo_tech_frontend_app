@@ -5979,6 +5979,13 @@ react-native-actions-sheet@^0.9.3:
   dependencies:
     react-native-safe-area-context "^4.8.2"
 
+react-native-element-dropdown@^2.10.4:
+  version "2.10.4"
+  resolved "https://registry.npmjs.org/react-native-element-dropdown/-/react-native-element-dropdown-2.10.4.tgz"
+  integrity sha512-sbzByNSQmS3iZuNxzeqs0L04MrYQt8uSNUcmnAZAN/vi5IqZ7N0TPHzZ996PSttpYrF2NkiByd+Zlw9Em+VgAw==
+  dependencies:
+    lodash "^4.17.21"
+
 react-native-floating-action@^1.22.0:
   version "1.22.0"
   resolved "https://registry.npmjs.org/react-native-floating-action/-/react-native-floating-action-1.22.0.tgz"

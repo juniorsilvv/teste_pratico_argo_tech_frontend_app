@@ -2,6 +2,8 @@ import { useRef, useCallback, useMemo, useState, useEffect } from 'react'
 import { View, Text, StyleSheet, Pressable, Button, ToastAndroid, Alert, TouchableOpacity } from 'react-native'
 import { GestureHandlerRootView, TextInput } from 'react-native-gesture-handler';
 import BotomSheet, { BottomSheetBackdrop } from '@gorhom/bottom-sheet';
+import { Dropdown } from 'react-native-element-dropdown';
+
 import CheckBox from 'expo-checkbox'
 import FAB from '../components/FAB';
 import Request from '../components/Request';
@@ -10,7 +12,12 @@ type tasks = {
     id: number,
     title: string,
     description: string,
-    status: boolean
+    status: boolean|number
+}
+
+type filter = {
+    label: string;
+    value: string;
 }
 
 export default function Home() {
@@ -22,6 +29,21 @@ export default function Home() {
     const [description, setDescription] = useState<string>('');
     const [onPressFunction, setOnPressFunction] = useState('validateTodo');
     const [idTask, setIdTask] = useState<number>();
+    const [allTasks, setAllTasks] = useState<tasks[]>([]);
+    const [value, setValue] = useState<string>();
+    const [isFocus, setIsFocus] = useState(false);
+
+    /** Label dropdow */
+    const renderLabel = () => {
+        if (value || isFocus) {
+            return (
+                <Text style={[styles.label, isFocus && { color: 'blue' }]}>
+                    Filtro
+                </Text>
+            );
+        }
+        return null;
+    };
 
 
 
@@ -41,11 +63,11 @@ export default function Home() {
         };
         let newTask = await Request('create', 'POST', data);
         addTask(newTask);
-    
+
     }
 
     /** Adiciona a nova task no object tasks */
-    const addTask = (task:tasks) => {
+    const addTask = (task: tasks) => {
         ToastAndroid.show('Nova tarefa adicionada', 100)
         setTitle('');
         setDescription('');
@@ -57,7 +79,7 @@ export default function Home() {
                 return [...prevTasks, task];
             }
         });
-       
+        setAllTasks(tasks)
     }
 
     /** Busca a lista de tarefas  */
@@ -112,6 +134,9 @@ export default function Home() {
             const updatedTasks = await Promise.all(updatedTasksPromises);
             // Atualize o estado com as tarefas atualizadas
             setTasks(updatedTasks);
+            setAllTasks(tasks)
+
+
         } catch (error) {
             console.error('Erro ao atualizar tarefas:', error);
         }
@@ -143,14 +168,15 @@ export default function Home() {
         setTasks(updatedTasks);
     }
 
-    const showBottomSheetEditTask = (id:number, title:string, description:string) => {
+    /** Chama o bottSheet para edição */
+    const showBottomSheetEditTask = (id: number, title: string, description: string) => {
         setTitle(title)
         setDescription(description)
         setIdTask(id)
 
         handleOpenPress()
         setOnPressFunction('editTask')
-    } 
+    }
 
 
     /**
@@ -159,21 +185,21 @@ export default function Home() {
      * @param title 
      * @param description 
      */
-    const editTask = async (title:string, description:string) => {
+    const editTask = async (title: string, description: string) => {
 
         if (!title) return toastr('Título é obrigátorio')
         if (!description) return toastr('Descrição é obrigátorio')
-    
+
         let data = {
             title: title,
             description: description
         };
 
-        let task:tasks = await Request(`update/${idTask}`, 'PUT', data);
+        let task: tasks = await Request(`update/${idTask}`, 'PUT', data);
 
         const updatedTasksPromises = tasks.map(task => {
             if (task.id === idTask) {
-                return { ...task, title: title, description: description};
+                return { ...task, title: title, description: description };
             }
             return task;
         });
@@ -182,6 +208,7 @@ export default function Home() {
         setTitle('');
         setDescription('');
         setTasks(updatedTasksPromises);
+        setAllTasks(tasks)
         setOnPressFunction('validateTodo')
         handleCloseAction()
         toastr('Tarefa atualizada');
@@ -192,41 +219,91 @@ export default function Home() {
      * Criar ou editar tarefa
      */
     const choosenFunction = () => {
-            
-        if(onPressFunction == 'validateTodo')
+
+        if (onPressFunction == 'validateTodo')
             validateTodo(title, description)
         else
             editTask(title, description)
 
     }
 
+    const filtros: filter[] = [
+        { label: 'Todas', value: '2' },
+        { label: 'Concluído', value: '1' },
+        { label: 'Pendente', value: '0' },
+    ];
+
+    /** Filtra as tarefas */
+    const filterTask = (filterValue: string | undefined) => {
+
+        /** Faço uma cópia para quando usuário filtrar por todas não fazer requisição novamente */
+        if(allTasks.length == 0)
+            setAllTasks(tasks)
+
+        let filteredTasks:tasks[] = [];
+
+        if (filterValue === '1') {
+            filteredTasks = allTasks.filter(task => task.status === 1);
+        } else if (filterValue === '0') {
+            filteredTasks = allTasks.filter(task => task.status === 0);
+        } else if (filterValue === '2') {
+            filteredTasks = allTasks;
+            setAllTasks([])
+        }
+        setTasks(filteredTasks);
+    };
+
+
     return (
         <GestureHandlerRootView style={{ flex: 1 }}>
             <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
+                {renderLabel()}
+                <Dropdown
+                    style={[styles.dropdown, isFocus && { borderColor: 'blue' }]}
+                    placeholderStyle={styles.placeholderStyle}
+                    selectedTextStyle={styles.selectedTextStyle}
+                    inputSearchStyle={styles.inputSearchStyle}
+                    iconStyle={styles.iconStyle}
+                    data={filtros}
+                    search
+                    maxHeight={300}
+                    labelField="label"
+                    valueField="value"
+                    placeholder={!isFocus ? 'Filtro' : '...'}
+                    searchPlaceholder="Filtro"
+                    value={value}
+                    onFocus={() => setIsFocus(true)}
+                    onBlur={() => setIsFocus(false)}
+                    onChange={item => {
+                        setValue(item.value);
+                        setIsFocus(false);
+                        filterTask(item.value);
+                    }}
+                />
 
                 <View style={styles.container}>
                     {tasks.map((value, key) => (
-                        <TouchableOpacity onPress={() => {showBottomSheetEditTask(value.id, value.title, value.description)}}                             key={value.id} 
+                        <TouchableOpacity onPress={() => { showBottomSheetEditTask(value.id, value.title, value.description) }} key={value.id}
                         >
-                        <View 
-                            style={
-                            [styles.row,
-                            { borderLeftColor: value.status ? '#5fd788' : 'red' }]}
-                        >
-                            <View>
-                                <Text>{value.title}</Text>
-                                <Text>{value.description}</Text>
+                            <View
+                                style={
+                                    [styles.row,
+                                    { borderLeftColor: value.status ? '#5fd788' : 'red' }]}
+                            >
+                                <View>
+                                    <Text>{value.title}</Text>
+                                    <Text>{value.description}</Text>
+                                </View>
+                                <View style={styles.actions}>
+                                    <CheckBox
+                                        value={value.status == true ? true : false}
+                                        onValueChange={() => alterStatus(value.id)}
+                                    />
+                                    <Pressable style={styles.actiondelete} onPress={() => showAlertDelete(value.id)}>
+                                        <Text style={{ color: 'white' }}>X</Text>
+                                    </Pressable>
+                                </View>
                             </View>
-                            <View style={styles.actions}>
-                                <CheckBox
-                                    value={value.status == true ? true : false}
-                                    onValueChange={() => alterStatus(value.id)}
-                                />
-                                <Pressable style={styles.actiondelete} onPress={() => showAlertDelete(value.id)}>
-                                    <Text style={{ color: 'white' }}>X</Text>
-                                </Pressable>
-                            </View>
-                        </View>
                         </TouchableOpacity>
                     ))}
                 </View>
@@ -362,5 +439,39 @@ const styles = StyleSheet.create({
         padding: 8,
         backgroundColor: 'red',
         borderRadius: 50
-    }
+    },
+    dropdown: {
+        marginTop: 20,
+        height: 50,
+        borderColor: 'gray',
+        borderWidth: 0.5,
+        borderRadius: 8,
+        paddingHorizontal: 8,
+        width: '90%'
+    },
+    icon: {
+        marginRight: 5,
+    },
+    label: {
+        position: 'absolute',
+        left: 22,
+        top: 3,
+        zIndex: 999,
+        paddingHorizontal: 8,
+        fontSize: 14,
+    },
+    placeholderStyle: {
+        fontSize: 16,
+    },
+    selectedTextStyle: {
+        fontSize: 16,
+    },
+    iconStyle: {
+        width: 20,
+        height: 20,
+    },
+    inputSearchStyle: {
+        height: 40,
+        fontSize: 16,
+    },
 }); 
