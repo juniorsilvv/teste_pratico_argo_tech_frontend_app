@@ -166,6 +166,7 @@ export default function Home() {
         const updatedTasks = tasks.filter(task => task.id !== id);
         // Atualize o estado das tarefas com o novo array
         setTasks(updatedTasks);
+        setAllTasks(tasks)
     }
 
     /** Chama o bottSheet para edição */
